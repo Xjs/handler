@@ -2,7 +2,7 @@
 
 A java instrumentation library for easy method routing.
 
-It's [MIT-licensed](LICENSE).
+It's [MIT-licensed](https://github.com/jatronizer/handler/LICENSE).
 
 ## What does it do?
 
