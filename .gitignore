@@ -1,0 +1,40 @@
+# IDE settings #
+.externalToolBuilders/
+.idea/
+.settings/
+*.iml
+*.ipr
+*.iws
+.classpath
+.launch
+.loadpath
+.metadata
+.project
+
+# Compilation artifacts #
+bin/
+target/
+tmp/
+*.class
+
+# Package Files #
+*.jar
+*.war
+*.ear
+
+# OS Junk
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Misc
+local.properties
+.env
