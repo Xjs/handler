@@ -17,8 +17,8 @@ public class PostInstrumentationTests {
 
 	private static HandlerLoader instrumentTestSubjects() {
 		HandlerLoader loader = new HandlerLoader();
-		loader.instrumentFor(Callable.class);
-		return loader.loadIntoClassLoader(Callable.class);
+		loader.instrumentFor(CLASS);
+		return loader.loadIntoClassLoader(CLASS);
 	}
 
 	public static TestSuite suite() throws Exception {
@@ -33,9 +33,9 @@ public class PostInstrumentationTests {
 	public static void main(String[] args) {
 		System.out.println(PostInstrumentationTests.class + ".main");
 		try {
-			JUnitCore.main(CLASS.getName());
+			JUnitCore.main(PostInstrumentationTests.class.getName());
 		} catch (Exception e) {
-			System.err.println("CRASH");
+			System.err.println("failed");
 			e.printStackTrace(System.err);
 		}
 	}
