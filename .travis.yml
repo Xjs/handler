@@ -3,3 +3,6 @@ jdk:
   - openjdk7
   - oraclejdk6
   - oraclejdk7
+
+script:
+ - mvn clean test -Dtest=PostInstrumentationTests,PreInstrumentationWrapperTests

@@ -11,10 +11,10 @@ import org.junit.runner.JUnitCore;
 import org.junit.runner.RunWith;
 
 @RunWith(org.junit.runners.AllTests.class)
-public class PreInstrumentationWrapperInstrumentationTests {
+public class PreInstrumentationWrapperTests {
 
 	private final static String WRAPPED_TESTS =
-			path(PreInstrumentationWrapperInstrumentationTests.class, "PreInstrumentationTests");
+			path(PreInstrumentationWrapperTests.class, "PreInstrumentationTests");
 
 	private static HandlerLoader instrumentTestSubjects() {
 		HandlerLoader loader = new HandlerLoader();
@@ -37,6 +37,7 @@ public class PreInstrumentationWrapperInstrumentationTests {
 		} catch (Exception e) {
 			System.err.println("failed");
 			e.printStackTrace(System.err);
+			System.exit(-1);
 		}
 	}
 }

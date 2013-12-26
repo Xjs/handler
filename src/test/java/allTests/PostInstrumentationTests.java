@@ -37,6 +37,7 @@ public class PostInstrumentationTests {
 		} catch (Exception e) {
 			System.err.println("failed");
 			e.printStackTrace(System.err);
+			System.exit(-1);
 		}
 	}
 }

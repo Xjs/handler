@@ -27,15 +27,9 @@ public class PreInstrumentationTests {
 
 	public static TestSuite suite() throws Exception {
 		TestSuite suite = new TestSuite();
-		//*/
 		suite.addTest(test("InnerClassesTest"));
 		suite.addTest(test("SuperConstructorCallsHandledMethodTest"));
 		suite.addTest(test("SpawnerTest"));
-		/*/
-		suite.addTest(test(InnerClassesTest.class));
-		suite.addTest(test(SuperConstructorCallsHandledMethodTest.class));
-		suite.addTest(test(SpawnerTest.class));
-		// */
 		return suite;
 	}
 
@@ -46,6 +40,7 @@ public class PreInstrumentationTests {
 		} catch (Exception e) {
 			System.err.println("failed");
 			e.printStackTrace(System.err);
+			System.exit(-1);
 		}
 	}
 }

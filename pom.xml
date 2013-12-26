@@ -8,6 +8,10 @@
     <artifactId>handler</artifactId>
     <version>1.0.0</version>
 
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.ow2.asm</groupId>
@@ -34,9 +38,12 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.16</version>
                 <configuration>
-                    <excludes>
-                        <exclude>**/allTests/PreInstrumentationTests.java</exclude>
-                    </excludes>
+                    <includes>
+                        <include>**/allTests/PostInstrumentationTests</include>
+                        <include>**/allTests/PreInstrumentationWrapperTests</include>
+                    </includes>
+                    <reuseForks>false</reuseForks>
+                    <!--<skipTests>${skipTests}</skipTests>-->
                 </configuration>
             </plugin>
         </plugins>
