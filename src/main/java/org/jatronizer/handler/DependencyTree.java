@@ -42,8 +42,7 @@ class DependencyTree {
 	private Map<String, Node> nodes = new HashMap<String, Node>();
 
 	public DependencyTree add(ClassNode node) {
-		Node n = nodes.get(node.name);
-		if (n == null) {
+		if (nodes.get(node.name) == null) {
 			createNode(node);
 		}
 		return this;
