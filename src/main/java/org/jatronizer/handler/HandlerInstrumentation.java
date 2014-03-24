@@ -14,9 +14,8 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
 /**
- * instruments other classes bytecode so it applies the Handler Pattern.<br>
+ * instruments another class so it applies the Handler Pattern.<br>
  * The Handler Pattern as supported by this class gives full control over a method's behavior in a class.
- * It is a design pattern designed for use with bytecode instrumentation.
  * An interface serves as a configuration file for the instrumentation.<br>
  * Usage scenario:<br />
  * You want to check how often a method <code>charToInt</code> is called on an instance of class <code>Caster</code>.
@@ -139,17 +138,17 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	 *		<code>assignBeforeSuper</code>:
 	 *			set Handler field to <code>this</code> in constructor right before calling <code>super(...)</code>,
 	 *			guard against <code>null</code> in setHandler.<br>
-	 *			This approach is fast and safe, but the created bytecode is invalid since Java 1.7+.
+	 *			This approach is fast and safe, but the created bytecode is invalid in Java 1.7+.
 	 *			As it relies on a hack, some tools may have (or cause) problems with this approach.
 	 *		<code>assignAfterSuper</code>:
 	 *			set Handler field to <code>this</code> in constructor right after calling <code>super(...)</code>,
 	 *			guard against <code>null</code> in setHandler.<br>
 	 *			This approach will throw a NullPointerException when a handled method
 	 *			overrides a method in <code>super</code> which is called in the <code>super(...)</code> constructor.
-	 *		<code>checkBeforeCall</code> or <code>null</code>:
+	 *		<code>checkBeforeCall</code> or <code>null</code> (default):
 	 *			check Handler field before each call of each handled method,
 	 *			do not use a Handler when none is set (call the method on <code>this</code> or a spawned Handler).
-	 *			This is probably the slowest approach, but it is the robust <strong>default</strong>.
+	 *			This is probably slightly slower, but it is robust.
 	 * @param defaultHandlerSpawner a static method that retrieves the Handler used when none is explicitly set.<br>
 	 *		<code>null</code> always sets the default Handler to <code>this</code>.<br>
 	 *		If specified, the Spawner must be a reachable (<code>public</code> method and class)
@@ -294,7 +293,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 		if (fromSpawner && usesSpawner()) {
 			// result is spawned handler
 			instructions.add(new VarInsnNode(ALOAD, 0));
-			instructions.add(new MethodInsnNode(INVOKESTATIC, spawnerClass, spawnerMethod, spawnerDesc));
+			instructions.add(new MethodInsnNode(INVOKESTATIC, spawnerClass, spawnerMethod, spawnerDesc, false));
 		} else {
 			// result is this
 			instructions.add(new VarInsnNode(ALOAD, 0));
@@ -492,7 +491,8 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 				INVOKEINTERFACE,
 				handlerType.getInternalName(),
 				handledMethod.name,
-				targetMethodArgDescriptor
+				targetMethodArgDescriptor,
+				true
 		);
 		// return / return result
 		mn.visitInsn(Type.getReturnType(handledMethod.desc).getOpcode(IRETURN));
@@ -567,12 +567,12 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 					var.var++;
 				}
 			} else if (node instanceof FrameNode) {
-                FrameNode frame = (FrameNode) node;
-                int type = frame.type;
-                if (type == Opcodes.F_FULL || type == Opcodes.F_NEW) {
-                    frame.local.add(0, handlerType.getDescriptor());
-                }
-            }
+				FrameNode frame = (FrameNode) node;
+				int type = frame.type;
+				if (type == Opcodes.F_FULL || type == Opcodes.F_NEW) {
+					frame.local.add(0, handlerType.getDescriptor());
+				}
+			}
 		}
 		List<LocalVariableNode> locals = (List<LocalVariableNode>) handledMethod.localVariables;
 		if (locals != null) {
@@ -660,7 +660,8 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 				isStatic ? INVOKESTATIC : INVOKESPECIAL,
 				handlerType.getInternalName(),
 				nativePrefix + handledMethod.name,
-				handledMethod.desc
+				handledMethod.desc,
+				false
 		);
 		// return / return result
 		mn.visitInsn(Type.getReturnType(handledMethod.desc).getOpcode(IRETURN));

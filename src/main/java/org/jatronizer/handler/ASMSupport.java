@@ -14,9 +14,9 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
 
-public class ASMSupport {
+public final class ASMSupport {
 
-	// we don't use a String but reference the class so the library can be repackaged or refactored
+	// reference the class instead of using a String so the library can be repackaged or refactored
 	private static final String INSTRUMENTS_ANNOTATION_DESC = Type.getDescriptor(Instruments.class);
 	private static final String SPAWNER_ANNOTATION_DESC = Type.getDescriptor(SpawnsWith.class);
 

@@ -9,7 +9,7 @@ import java.util.Map;
 import org.objectweb.asm.tree.ClassNode;
 
 // insulated by an interface so asm does not leak into the api
-public class ASMTreeInstrumentor implements Instrumentor {
+class ASMTreeInstrumentor implements Instrumentor {
 
 	private final ASMTreeInstrumentation instrumentation;
 	private final DependencyTree dependencies;

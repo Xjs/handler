@@ -4,7 +4,6 @@ import static utils.PathHelper.path;
 
 import junit.framework.TestSuite;
 
-
 import org.jatronizer.handler.Callable;
 import org.jatronizer.handler.HandlerLoader;
 import org.junit.runner.JUnitCore;
@@ -24,16 +23,13 @@ public class PreInstrumentationWrapperTests {
 
 	public static TestSuite suite() throws Exception {
 		HandlerLoader loader = instrumentTestSubjects();
-		//loader.loadIntoClassLoader(ClassLoader.getSystemClassLoader());
 		return (TestSuite) loader.loadClass(WRAPPED_TESTS).getMethod("suite").invoke(null);
 	}
 
 	public static void main(String[] args) {
 		try {
 			HandlerLoader loader = instrumentTestSubjects();
-			//loader.loadIntoClassLoader(ClassLoader.getSystemClassLoader());
 			JUnitCore.main(WRAPPED_TESTS);
-			//loader.callMain(JUnitCore.class, WRAPPED_TESTS);
 		} catch (Exception e) {
 			System.err.println("failed");
 			e.printStackTrace(System.err);

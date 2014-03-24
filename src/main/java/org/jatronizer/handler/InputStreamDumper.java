@@ -3,7 +3,7 @@ package org.jatronizer.handler;
 import java.io.IOException;
 import java.io.InputStream;
 
-public class InputStreamDumper {
+class InputStreamDumper {
 
 	private byte[] data;
 	private InputStreamDumper next;

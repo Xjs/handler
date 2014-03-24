@@ -11,7 +11,7 @@ import org.objectweb.asm.tree.ClassNode;
 
 import static org.jatronizer.handler.ASMSupport.*;
 
-public class DependencyTree {
+class DependencyTree {
 
 	private static class Node implements Comparable<Node> {
 		private final String binaryName;
@@ -44,7 +44,7 @@ public class DependencyTree {
 	public DependencyTree add(ClassNode node) {
 		Node n = nodes.get(node.name);
 		if (n == null) {
-			n = createNode(node);
+			createNode(node);
 		}
 		return this;
 	}
