@@ -35,10 +35,10 @@ import org.objectweb.asm.tree.*;
  * <pre><code>
  *	public interface CharToIntHandler {
  *		// the new version of our method
- *		int charToInt(CharToIntHandler handler, char c);
+ *		int charToInt(CharToIntHandler build, char c);
  *
  *		// we need this to set our Handler, HandlerInstrumentation will create this
- *		void setCharToIntHandler(CharToIntHandler handler);
+ *		void setCharToIntHandler(CharToIntHandler build);
  *	}
  * </code></pre>
  * <code>HandlerInjector</code> injects <code>CharToIntHandler</code> into <code>Caster</code>
@@ -54,7 +54,7 @@ import org.objectweb.asm.tree.*;
  *		}
  *
  *		// the original version with a changed signature
- *		public int charToInt(CharToIntHandler handler, char c) {
+ *		public int charToInt(CharToIntHandler build, char c) {
  *			return (int) c;
  *		}
  *
@@ -84,8 +84,8 @@ import org.objectweb.asm.tree.*;
  *			return handlee.charToInt(null, c);
  *		}
  *
- *		public void setCharToIntHandler(CharToIntHandler handler) {
- *			// this will never get called on a handler, it's for the handlee
+ *		public void setCharToIntHandler(CharToIntHandler build) {
+ *			// this will never get called on a build, it's for the handlee
  *			throw new UnsupportedOperationException("you can't handle this!");
  *		}
  *	}
@@ -112,15 +112,8 @@ import org.objectweb.asm.tree.*;
  */
 public class HandlerInstrumentation implements ASMTreeInstrumentation {
 
-	public static enum NullPointerGuard {
-		assignBeforeSuper,
-		assignAfterSuper,
-		checkBeforeCall
-	}
-
 	private final String simpleName;
 	private final Type handlerType;
-	private final NullPointerGuard guard;
 	private final String spawnerClass;
 	private final String spawnerMethod;
 	private final String spawnerDesc;
@@ -131,33 +124,16 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 
 	/**
 	 * creates a new HandlerInjector.
-	 * @param config the handler's structure using the interface as a declarative configuration
-	 * @param guard specifies how to guard against NullPointerExceptions.
-	 *		This has to be handled as the Handler field is not set after initialization.<br>
-	 *		Passing <code>null</code> uses the default value.
-	 *		<code>assignBeforeSuper</code>:
-	 *			set Handler field to <code>this</code> in constructor right before calling <code>super(...)</code>,
-	 *			guard against <code>null</code> in setHandler.<br>
-	 *			This approach is fast and safe, but the created bytecode is invalid in Java 1.7+.
-	 *			As it relies on a hack, some tools may have (or cause) problems with this approach.
-	 *		<code>assignAfterSuper</code>:
-	 *			set Handler field to <code>this</code> in constructor right after calling <code>super(...)</code>,
-	 *			guard against <code>null</code> in setHandler.<br>
-	 *			This approach will throw a NullPointerException when a handled method
-	 *			overrides a method in <code>super</code> which is called in the <code>super(...)</code> constructor.
-	 *		<code>checkBeforeCall</code> or <code>null</code> (default):
-	 *			check Handler field before each call of each handled method,
-	 *			do not use a Handler when none is set (call the method on <code>this</code> or a spawned Handler).
-	 *			This is probably slightly slower, but it is robust.
+	 * @param config the build's structure using the interface as a declarative configuration
 	 * @param defaultHandlerSpawner a static method that retrieves the Handler used when none is explicitly set.<br>
 	 *		<code>null</code> always sets the default Handler to <code>this</code>.<br>
 	 *		If specified, the Spawner must be a reachable (<code>public</code> method and class)
 	 *		<code>static</code> method.<br>
 	 *		It's signature must be <code>HANDLER method(HANDLER)</code>.
-	 *		Return the parameter for "no handler" default behavior.<br>
+	 *		Return the parameter for "no build" default behavior.<br>
 	 *		It must not return null and must not declare or throw Throwables.<br>
 	 *		The Handlee passes itself on initialisation.<br>
-	 *		For a Handler <code>X</code>, this example sets no handler - like passing <code>null</code> instead:
+	 *		For a Handler <code>X</code>, this example sets no build - like passing <code>null</code> instead:
 	 *		<pre><code>
 	 *		package example;
 	 *
@@ -183,10 +159,8 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	@SuppressWarnings("unchecked")
 	public HandlerInstrumentation(
 			ClassNode config,
-			NullPointerGuard guard,
 			String defaultHandlerSpawner,
 			String nativePrefix) {
-		this.guard = guard == null ? NullPointerGuard.checkBeforeCall : guard;
 		this.handlerType = Type.getObjectType(config.name);
 		// this check is simple. We could check for presence of the method we need, but that requires class loading
 		this.nativePrefix = config.version >= V1_6 ? nativePrefix : null;
@@ -210,12 +184,12 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 			if (match(
 					method, "()" + handlerDesc,
 					"get" + simpleName, simpleName, downcaseFirst(simpleName))) {
-				// a method to retrieve handler X: "X getX()", "X X()" or "X x()"
+				// a method to retrieve build X: "X getX()", "X X()" or "X x()"
 				getHandlers.add(method.name);
 			} else if (match(
 					method, "(" + handlerDesc + ")V",
 					"set" + simpleName, simpleName, downcaseFirst(simpleName))) {
-				// a method to set handler X: "void setX(X)", "void X(X)" or "void x(X)"
+				// a method to set build X: "void setX(X)", "void X(X)" or "void x(X)"
 				setHandlers.add(method.name);
 			} else if (method.desc.substring(1).startsWith(handlerType.getDescriptor())) {
 				handlerMethods.add(method.name + "(" + method.desc.substring(method.desc.indexOf(';') + 1));
@@ -245,11 +219,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 		final Type handleeType = Type.getObjectType(handlee.name);
 		String[] methods = this.handlerMethods.clone();
 		for (MethodNode method : (MethodNode[]) handlee.methods.toArray(new MethodNode[handlee.methods.size()])) {
-			// inject initial value of Handler-field in constructors if relaying is not guarded per call
-			if ("<init>".equals(method.name)) {
-				assignHandler(method, handleeType.getInternalName(), fieldName);
-			}
-			// per method: apply handler pattern if applicable
+			// per method: apply build pattern if applicable
 			String methodSignature = method.name + method.desc;
 			for (int i = 0; i < methods.length; i++) {
 				if (methodSignature.equals(methods[i])) {
@@ -276,7 +246,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	}
 
 	/**
-	 * create the instructions needed to store a handler in the handler field or in a temporary variable.
+	 * create the instructions needed to store a build in the build field or in a temporary variable.
 	 * If handlee and handlerField are non-null, the result is stored in the field on handlee.
 	 * Otherwise, it's stored in a temporary variable at position varSlot.
 	 */
@@ -287,11 +257,11 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 			boolean fromSpawner) {
 		final boolean storeInField = handleeInternalName != null && handlerField != null;
 		if (!storeInField && varSlot <= 0) {
-			throw new RuntimeException("varSlot must be > 0 or the handler field information must be specified");
+			throw new RuntimeException("varSlot must be > 0 or the build field information must be specified");
 		}
 		InsnList instructions = new InsnList();
 		if (fromSpawner && usesSpawner()) {
-			// result is spawned handler
+			// result is spawned build
 			instructions.add(new VarInsnNode(ALOAD, 0));
 			instructions.add(new MethodInsnNode(INVOKESTATIC, spawnerClass, spawnerMethod, spawnerDesc, false));
 		} else {
@@ -340,51 +310,6 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	}
 
 	/**
-	 * instrument constructor and add <code>this.HANDLER = this;</code> or the result of an invocation of the spawner.
-	 * If super is not <code>java.lang.Object</code> and the guard type is <code>assignBeforeSuper</code>,
-	 * the assignment of <code>this</code> is injected before calling <code>super(...)</code> (see below).
-	 * The result of the spawner is injected after calling <code>super(...)</code> if a spawner was specified.
-	 */
-	private void assignHandler(MethodNode method, String handleeInternalName, String handlerField) {
-		if (this.guard == NullPointerGuard.checkBeforeCall) {
-			return;
-		}
-		InsnList instructions = method.instructions;
-		final boolean usesLabels = instructions.getFirst() instanceof LabelNode;
-		final MethodInsnNode constructorCall = findConstructorCall(instructions);
-		// skip modification on delegation to this(...)
-		if (handleeInternalName.equals(constructorCall.owner)) {
-			return;
-		}
-		// not delegating to this(...), inject initialization of Handler field
-		AbstractInsnNode node = instructions.getFirst();
-		InsnList storeHandler;
-		switch (this.guard) {
-			case assignBeforeSuper:
-				storeHandler = storeHandlerInField(handleeInternalName, handlerField, false);
-				if (usesLabels) {
-					storeHandler.add(new LabelNode());
-					instructions.insert(node, storeHandler);
-				} else {
-					instructions.insertBefore(node, storeHandler);
-				}
-				if (!usesSpawner()) {
-					break;
-				} // else fallthrough
-			case assignAfterSuper:
-				storeHandler = storeHandlerInField(handleeInternalName, handlerField, true);
-				if (usesLabels) {
-					storeHandler.insertBefore(storeHandler.getFirst(), new LabelNode());
-				}
-				instructions.insert(constructorCall, storeHandler);
-				break;
-			default:
-				throw new InstrumentationException(this.guard + " is not implemented yet");
-		}
-		method.maxStack += usesSpawner() ? 2 : 1;
-	}
-
-	/**
 	 * adds Handler parameter to the handled method and adds the delegating method to the class
 	 */
 	private void applyHandlerPattern(
@@ -416,15 +341,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	}
 
 	/**
-	 * creates the handler method:
-	 * <pre><code>
-	 *	public MODIFIERS RETURN_TYPE METHOD_NAME(...) EXCEPTIONS {
-	 *		HANDLER_TYPE tmp = this.HANDLER_FIELD;
-	 *		return tmp.METHOD_NAME(this, ...);
-	 *	}
-	 * </code></pre>
-	 *
-	 * or a guarded handler method (checkBeforeCall):
+	 * creates the build method:
 	 * <pre><code>
 	 *	public MODIFIERS RETURN_TYPE METHOD_NAME(...) EXCEPTIONS {
 	 *		HANDLER_TYPE tmp = this.HANDLER_FIELD;
@@ -434,13 +351,12 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	 *		return tmp.METHOD_NAME(this, ...);
 	 *	}
 	 * </code></pre>
-	 * if a spawner for a default handler is given, it is used instead of <code>this</code>
+	 * if a spawner for a default build is given, it is used instead of <code>this</code>
 	 */
 	private MethodNode createHandlerMethod(
 			MethodNode handledMethod,
 			String handleeInternalName,
 			String field) {
-		final boolean guarded = guard == NullPointerGuard.checkBeforeCall;
 		final Type[] argTypes = Type.getArgumentTypes(handledMethod.desc);
 		MethodNode mn = new MethodNode(
 				(handledMethod.access | ACC_PUBLIC) & ~(ACC_PROTECTED | ACC_PRIVATE),
@@ -456,27 +372,25 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 		mn.visitVarInsn(ALOAD, 0);
 		mn.visitFieldInsn(GETFIELD, handleeInternalName, field, handlerType.getDescriptor());
 		Label afterJump = null;
-		if (guarded) {
-			// store handler in temporary var
-			int varSlot = 1;
-			for (Type t : argTypes) {
-				varSlot += t.getSize();
-			}
-			mn.visitVarInsn(ASTORE, varSlot);
-			// build conditional
-			mn.visitVarInsn(ALOAD, varSlot);
-			mn.visitJumpInsn(IFNONNULL, afterJump = new Label());
-			storeHandlerInVarSlot(mn, varSlot, true);
-			mn.visitLabel(afterJump);
-			Object[] locals = new Object[argTypes.length + 2];
-			locals[0] = handleeInternalName;
-			for (int i = 0; i < argTypes.length; i++) {
-				locals[i + 1] = getFrameType(argTypes[i]);
-			}
-			locals[locals.length - 1] = handlerType.getInternalName();
-			mn.visitFrame(F_NEW, locals.length, locals, 0, new Object[0]);
-			mn.visitVarInsn(ALOAD, varSlot);
+		// store build in temporary var
+		int varSlot = 1;
+		for (Type t : argTypes) {
+			varSlot += t.getSize();
 		}
+		mn.visitVarInsn(ASTORE, varSlot);
+		// build conditional
+		mn.visitVarInsn(ALOAD, varSlot);
+		mn.visitJumpInsn(IFNONNULL, afterJump = new Label());
+		storeHandlerInVarSlot(mn, varSlot, true);
+		mn.visitLabel(afterJump);
+		Object[] locals = new Object[argTypes.length + 2];
+		locals[0] = handleeInternalName;
+		for (int i = 0; i < argTypes.length; i++) {
+			locals[i + 1] = getFrameType(argTypes[i]);
+		}
+		locals[locals.length - 1] = handlerType.getInternalName();
+		mn.visitFrame(F_NEW, locals.length, locals, 0, new Object[0]);
+		mn.visitVarInsn(ALOAD, varSlot);
 		// first argument is "this"
 		mn.visitVarInsn(ALOAD, 0);
 		for (int i = 0, slot = 1; i < argTypes.length; i++) {
@@ -485,7 +399,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 			mn.visitVarInsn(type.getOpcode(ILOAD), slot);
 			slot += type.getSize();
 		}
-		// call handler method on handler field with (this, other arguments)
+		// call build method on build field with (this, other arguments)
 		String targetMethodArgDescriptor = "(" + handlerType.getDescriptor() + handledMethod.desc.substring(1);
 		mn.visitMethodInsn(
 				INVOKEINTERFACE,
@@ -507,9 +421,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 			mn.visitLocalVariable("arg" + i, type.getDescriptor(), null, start, end, slot);
 			slot += type.getSize();
 		}
-		if (guarded) {
-			mn.visitLocalVariable(field, handlerType.getDescriptor(), null, afterJump, end, slot);
-		}
+		mn.visitLocalVariable(field, handlerType.getDescriptor(), null, afterJump, end, slot);
 		mn.visitMaxs(slot + 1, slot + 2);
 		mn.visitEnd();
 		return mn;
@@ -544,7 +456,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	/**
 	 * changes handled method; adds HANDLER argument, removes private/protected:
 	 * <pre><code>
-	 *	public MODIFIERS RETURN_TYPE METHOD_NAME(HANDLER handler, [other arguments]) EXCEPTIONS {
+	 *	public MODIFIERS RETURN_TYPE METHOD_NAME(HANDLER build, [other arguments]) EXCEPTIONS {
 	 *		// ...
 	 *	}
 	 * </code></pre>
@@ -624,7 +536,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	/**
 	 * wraps a handled native method:
 	 * <pre><code>
-	 *	public final MODIFIERS RETURN_TYPE METHOD_NAME(HANDLER handler, [other arguments]) EXCEPTIONS {
+	 *	public final MODIFIERS RETURN_TYPE METHOD_NAME(HANDLER build, [other arguments]) EXCEPTIONS {
 	 *		return <nativePrefix>METHOD_NAME([other arguments]);
 	 *	}
 	 * </code></pre>
@@ -740,6 +652,17 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	 *		return this.FIELD;
 	 *	}
 	 * </code></pre>
+	 *
+	 * or if the field is the handler:
+	 * <pre><code>
+	 *	public FIELD_TYPE METHOD() {
+	 *		FIELD_TYPE field = this.FIELD
+	 *		if (field == null) {
+	 *			field = this;
+	 *		}
+	 *		return field;
+	 *	}
+	 * </code></pre>
 	 */
 	private MethodNode createGetter(
 			String ownerInternalName,
@@ -752,6 +675,13 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 		mn.visitLabel(start);
 		mn.visitVarInsn(ALOAD, 0);
 		mn.visitFieldInsn(GETFIELD, ownerInternalName, field, fieldType.getDescriptor());
+		if (this.handlerType.equals(fieldType)) {
+			Label jumpAfter = new Label();
+			mn.visitJumpInsn(IFNONNULL, jumpAfter);
+			mn.visitVarInsn(ALOAD, 0);
+			mn.visitLabel(jumpAfter);
+			mn.visitFrame(F_SAME, 0, null, 0, null);
+		}
 		mn.visitInsn(fieldType.getOpcode(IRETURN));
 		Label end = new Label();
 		mn.visitLabel(end);
@@ -769,8 +699,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	 *	}
 	 * </code></pre>
 	 *
-	 * or (for Handler-Setters):
-	 *
+	 * or if the field is the handler:
 	 * <pre><code>
 	 *	public void METHOD(FIELD_TYPE arg) {
 	 *		if (arg == null) {
@@ -790,7 +719,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 		Label start = new Label();
 		mn.visitLabel(start);
 		if (this.handlerType.equals(fieldType)) {
-			// on setters for set handler-field to <this> if argument is <null>
+			// on setters for set build-field to <this> if argument is <null>
 			mn.visitVarInsn(ALOAD, 1);
 			Label jumpAfter = new Label();
 			mn.visitJumpInsn(IFNONNULL, jumpAfter);

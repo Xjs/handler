@@ -8,7 +8,6 @@ import java.security.ProtectionDomain;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.jatronizer.handler.HandlerInstrumentation.NullPointerGuard;
 import org.objectweb.asm.tree.ClassNode;
 
 public class Agent implements ClassFileTransformer {
@@ -81,7 +80,6 @@ public class Agent implements ClassFileTransformer {
 		ClassNode handlerNode = ASMSupport.asNode(handlerBytecode);
 		HandlerInstrumentation instrumentation = new HandlerInstrumentation(
 				handlerNode,
-				NullPointerGuard.assignBeforeSuper,
 				setup.handlerSpawnerName,
 				"$" + setup.handlerName.replace('.', '_') + "$"
 		);
@@ -94,15 +92,12 @@ public class Agent implements ClassFileTransformer {
 	}
 
 	// for native methods (probably not useful for Handler-Injection):
-	// http://docs.oracle.com/javase/6/docs/api/java/lang/instrument/Instrumentation.html#setNativeMethodPrefix(java.lang.instrument.ClassFileTransformer, java.lang.String)
-	public byte[] transform(ClassLoader loader,
-							String className,
-							Class<?> classBeingRedefined,
-							ProtectionDomain protectionDomain,
-							byte[] classfileBuffer) throws IllegalClassFormatException {
+	// java.lang.instrument.Instrumentation.setNativeMethodPrefix(ClassFileTransformer, String)
+	public byte[] transform(ClassLoader loader, String clsName, Class<?> cls,
+							ProtectionDomain pdom, byte[] buffer) throws IllegalClassFormatException {
 		// this is a little convoluted - initialize the object on first call of transform
 		// and keep the performance penalty for the initalization check low.
-		// Here, "this.setups == null" indicates everything is initialized.
+		// "this.setups == null" indicates everything is initialized.
 		// This has to happen here, we need access to classes outside of the agent jar
 		final HandlerSetup[] setups = this.setups;
 		if (setups != null) {
@@ -114,21 +109,21 @@ public class Agent implements ClassFileTransformer {
 					this.setups = null;
 				}
 			}
-			System.out.println(" < " + className);
+			System.out.println(" < " + clsName);
 			for (String targetClass : instrumentationPlan.keySet()) {
 				System.out.println(" > " + targetClass);
 			}
 		}
 		// it's initialized, we can continue
-		ASMTreeInstrumentation instrumentation = instrumentationPlan.get(className);
+		ASMTreeInstrumentation instrumentation = instrumentationPlan.get(clsName);
 		if (instrumentation != null) {
 			try {
-				return ASMSupport.asBytes(instrumentation.instrument(ASMSupport.asNode(classfileBuffer)));
+				return ASMSupport.asBytes(instrumentation.instrument(ASMSupport.asNode(buffer)));
 			} catch (Exception e) {
-				throw new InstrumentationException("could not instrument " + className + " in agent", e);
+				throw new InstrumentationException("could not instrument " + clsName + " in agent", e);
 			}
 		}
-		return classfileBuffer;
+		return buffer;
 	}
 
 	public static void premain(String agentArgs, Instrumentation inst) {
@@ -145,7 +140,7 @@ public class Agent implements ClassFileTransformer {
 	public static void usage(boolean argError) {
 		if (argError) {
 			System.err.println(
-					"missing handler class specification (agent args):"
+					"missing build class specification (agent args):"
 			);
 		} else {
 			System.err.println(
@@ -159,9 +154,9 @@ public class Agent implements ClassFileTransformer {
 			);
 		}
 		System.err.println(
-				"  one or more handler specifications (separated by ';')\n" +
-				"  a handler specification consists of the handler name and the handlees (',' separated)\n" +
-				"  handlees specified with the Instruments annotation in the handler are automatically added\n" +
+				"  one or more build specifications (separated by ';')\n" +
+				"  a build specification consists of the build name and the handlees (',' separated)\n" +
+				"  handlees specified with the Instruments annotation in the build are automatically added\n" +
 				"  examples:\n" +
 				"    my.Handler\n" +
 				"    my.Handler=my.Handlee\n" +

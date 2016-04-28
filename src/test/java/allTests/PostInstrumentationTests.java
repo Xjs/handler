@@ -24,7 +24,7 @@ public class PostInstrumentationTests {
 	public static TestSuite suite() throws Exception {
 		TestSuite suite = new TestSuite();
 		for (String binaryNameOfTest : PathHelper.paths(CLASS,
-                "InnerClassesTest", "SuperConstructorCallsHandledMethodTest", "SpawnerTest")) {
+				"InnerClassesTest", "SuperConstructorCallsHandledMethodTest", "SpawnerTest")) {
 			suite.addTest(new JUnit4TestAdapter(Class.forName(binaryNameOfTest)));
 		}
 		return suite;

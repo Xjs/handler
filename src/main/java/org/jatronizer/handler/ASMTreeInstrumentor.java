@@ -20,8 +20,8 @@ class ASMTreeInstrumentor implements Instrumentor {
 	 * @param instrumentation the instrumentation to apply
 	 */
 	public ASMTreeInstrumentor(ASMTreeInstrumentation instrumentation,
-                               DependencyTree dependencies,
-                               Map<String, byte[]> declaredClasses) {
+								DependencyTree dependencies,
+								Map<String, byte[]> declaredClasses) {
 		this.instrumentation = instrumentation;
 		this.dependencies = dependencies;
 		this.declaredClasses = declaredClasses;
@@ -99,8 +99,8 @@ class ASMTreeInstrumentor implements Instrumentor {
 						? "null"
 						: instrumentationTarget.name.replace('/', '.');
 				errors.append(className).append(">: ")
-                        .append(e.getClass().getSimpleName())
-                        .append(" \"").append(e.getMessage()).append("\"");
+						.append(e.getClass().getSimpleName())
+						.append(" \"").append(e.getMessage()).append("\"");
 			}
 		}
 		if (errors != null) {

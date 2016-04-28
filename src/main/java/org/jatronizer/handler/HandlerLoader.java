@@ -10,7 +10,6 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.jatronizer.handler.HandlerInstrumentation.NullPointerGuard;
 import org.objectweb.asm.tree.ClassNode;
 
 public class HandlerLoader extends ClassLoader {
@@ -61,11 +60,11 @@ public class HandlerLoader extends ClassLoader {
 	 *		It must be reachable (<code>public</code> method and class, <code>static</code> class if inner class)
 	 *		<code>static</code> method.<br>
 	 *		It's signature must be <code>HANDLER method(HANDLER, boolean)</code>
-	 *		(return the HANDLER parameter for "no handler").<br>
+	 *		(return the HANDLER parameter for "no build").<br>
 	 *		It must not return null or throw or declare Exceptions.<br>
 	 *		The Handlee passes itself and a boolean (<code>false</code> if you must not call methods on the
 	 *		Handlee because it is not fully initialized yet).<br>
-	 *		For a Handler <code>X</code>, this example sets no handler (like passing <code>null</code> instead):
+	 *		For a Handler <code>X</code>, this example sets no build (like passing <code>null</code> instead):
 	 *		<pre><code>
 	 *		package example;
 	 *
@@ -77,7 +76,7 @@ public class HandlerLoader extends ClassLoader {
 	 *		</code></pre>
 	 *		The parameter for this example is <code>example.Utils$Spawner.spawn</code>
 	 *		(just like a binary name with a method suffix).<br>
-	 *		The spawner is used to initialize the handlee's handler after the <code>super(...)</code>
+	 *		The spawner is used to initialize the handlee's build after the <code>super(...)</code>
 	 *		constructor was called.
 	 */
 	public Instrumentor instrumentFor(String binaryName, String defaultHandlerSpawner, String...instrumentedClasses) {
@@ -89,7 +88,6 @@ public class HandlerLoader extends ClassLoader {
 		Instrumentor instrumentor = new ASMTreeInstrumentor(
 			new HandlerInstrumentation(
 				handlerNode,
-				NullPointerGuard.checkBeforeCall,
 				handlerSpawner,
 				null
 			),
@@ -113,7 +111,7 @@ public class HandlerLoader extends ClassLoader {
 	/**
 	 * retrieves an Instrumentor for the specified Handler.
 	 * @see org.jatronizer.handler.HandlerLoader:instrumentFor(String, String)
-	 * @param handler class of the handler type
+	 * @param handler class of the build type
 	 * @param defaultHandlerSpawner a static method that retrieves the first Handler (set in the Handlees constructor)
 	 */
 	public Instrumentor instrumentFor(Class<?> handler, String defaultHandlerSpawner) {
@@ -123,7 +121,7 @@ public class HandlerLoader extends ClassLoader {
 	/**
 	 * retrieves an Instrumentor for the specified Handler.
 	 * @see org.jatronizer.handler.HandlerLoader:instrumentFor(String, String)
-	 * @param handler class of the handler type
+	 * @param handler class of the build type
 	 */
 	public Instrumentor instrumentFor(Class<?> handler) {
 		return instrumentFor(handler.getName(), null);

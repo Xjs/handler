@@ -66,6 +66,7 @@ class DependencyTree {
 		return result;
 	}
 
+	@SuppressWarnings("unchecked")
 	private String[] extractImportedBinaryNames(ClassNode node) {
 		String binaryName = node.name;
 		ArrayList<String> nodesToAdd = new ArrayList<String>();

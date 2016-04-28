@@ -20,10 +20,6 @@ public final class ASMSupport {
 	private static final String INSTRUMENTS_ANNOTATION_DESC = Type.getDescriptor(Instruments.class);
 	private static final String SPAWNER_ANNOTATION_DESC = Type.getDescriptor(SpawnsWith.class);
 
-	public static <I> I[] array(I... elements) {
-		return elements;
-	}
-
 	public static boolean match(MethodNode node, String argDesc, String... names) {
 		if (argDesc.equals(node.desc)) {
 			for (String name : names) {
@@ -41,49 +37,6 @@ public final class ASMSupport {
 			lastIndex = className.lastIndexOf('$');
 		}
 		return className.substring(lastIndex + 1);
-	}
-
-	public static String[] addIfNew(String newString, String... strings) {
-		for (String string : strings) {
-			if (equal(newString, string)) {
-				return strings;
-			}
-		}
-		String[] result = new String[strings.length];
-		System.arraycopy(strings, 0, result, 0, strings.length);
-		result[strings.length] = newString;
-		return result;
-	}
-
-	public static String[] addIfNew(String[] newStrings, String... strings) {
-		boolean[] isContained = new boolean[newStrings.length];
-		int numContained = 0;
-		for (String string : strings) {
-			for (int i = 0; i < newStrings.length; i++) {
-				if (equal(string, newStrings[i])) {
-					numContained += isContained[i] ? 0 : 1;
-					isContained[i] = true;
-				}
-			}
-		}
-		if (numContained == newStrings.length) {
-			return strings;
-		}
-		String[] result = new String[strings.length + newStrings.length - numContained];
-		System.arraycopy(strings, 0, result, 0, strings.length);
-		for (int i = 0, j = strings.length; i < newStrings.length; i++) {
-			if (!isContained[i]) {
-				result[j] = newStrings[i];
-				j++;
-			}
-		}
-		return result;
-	}
-
-	public static String prependType(String prefix, String descriptor) {
-		return prefix == null || descriptor == null
-				? null
-				: "(" + prefix + descriptor.substring(1);
 	}
 
 	public static <I> List<I> addIfNew(List<I> elements, I... newElements) {
@@ -111,33 +64,8 @@ public final class ASMSupport {
 		return result.toString();
 	}
 
-	public static boolean newField(String fieldName, List<FieldNode> fields) {
-		for (FieldNode f : fields) {
-			if (f.name.equals(fieldName)) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	public static boolean newMethod(String methodDescriptor, List<MethodNode> methods) {
-		for (MethodNode m : methods) {
-			if (m.desc.equals(methodDescriptor)) {
-				return false;
-			}
-		}
-		return true;
-	}
-
 	public static String objDescriptor(String internalName) {
 		return "L" + internalName + ";";
-	}
-
-	public int stackSize(String descriptor) {
-		if ("D".equals(descriptor) || "J".equals(descriptor)) {
-			return 2; // double, long
-		}
-		return 1; // anything else
 	}
 
 	public static boolean isSomeOf(int mask, int access) {
@@ -150,10 +78,6 @@ public final class ASMSupport {
 
 	public static boolean isAllOf(int mask, int access) {
 		return (access & mask) == mask;
-	}
-
-	public static boolean equal(Object object1, Object object2) {
-		return object1 == object2 || (object1 != null && object1.equals(object2));
 	}
 
 	@SuppressWarnings("unchecked")
@@ -196,25 +120,8 @@ public final class ASMSupport {
 		return result;
 	}
 
-	public static String[] getNames(MethodNode... methods) {
-		String[] result = new String[methods.length];
-		for (int i = 0; i < methods.length; i++) {
-			result[i] = methods[i].name;
-		}
-		return result;
-	}
-
 	public static String toPath(String binaryName) {
 		return binaryName.replace('.', '/') + ".class";
-	}
-
-	public static String getOuterClass(ClassNode source) {
-		String outerClass = source.outerClass;
-		if (outerClass == null && source.name.indexOf('$') >= 0) {
-			// infer name of outer class
-			outerClass = source.name.substring(0, source.name.lastIndexOf('$'));
-		}
-		return outerClass;
 	}
 
 	public static byte[] asBytes(String path) {
