@@ -21,7 +21,7 @@ public class SpawnerTest extends TestCase {
 		assertTrue("use behavior from Handler on startup when a spawner is used", CALL_RESULT == call());
 		assertTrue("different return values due to initialization spawner", rawCall() != call());
 		((Callable) this).setCallable(null);
-		assertTrue("matching return values as build was reset", rawCall() == call());
-		assertTrue("revert to uninstrumented behavior after setting the build to null", rawCall() == call());
+		assertTrue("matching return values as handler was reset", rawCall() == call());
+		assertTrue("revert to uninstrumented behavior after setting the handler to null", rawCall() == call());
 	}
 }

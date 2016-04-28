@@ -35,10 +35,10 @@ import org.objectweb.asm.tree.*;
  * <pre><code>
  *	public interface CharToIntHandler {
  *		// the new version of our method
- *		int charToInt(CharToIntHandler build, char c);
+ *		int charToInt(CharToIntHandler handler, char c);
  *
  *		// we need this to set our Handler, HandlerInstrumentation will create this
- *		void setCharToIntHandler(CharToIntHandler build);
+ *		void setCharToIntHandler(CharToIntHandler handler);
  *	}
  * </code></pre>
  * <code>HandlerInjector</code> injects <code>CharToIntHandler</code> into <code>Caster</code>
@@ -54,7 +54,7 @@ import org.objectweb.asm.tree.*;
  *		}
  *
  *		// the original version with a changed signature
- *		public int charToInt(CharToIntHandler build, char c) {
+ *		public int charToInt(CharToIntHandler handler, char c) {
  *			return (int) c;
  *		}
  *
@@ -84,7 +84,7 @@ import org.objectweb.asm.tree.*;
  *			return handlee.charToInt(null, c);
  *		}
  *
- *		public void setCharToIntHandler(CharToIntHandler build) {
+ *		public void setCharToIntHandler(CharToIntHandler handler) {
  *			// this will never get called on a build, it's for the handlee
  *			throw new UnsupportedOperationException("you can't handle this!");
  *		}
@@ -124,13 +124,13 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 
 	/**
 	 * creates a new HandlerInjector.
-	 * @param config the build's structure using the interface as a declarative configuration
+	 * @param config the handler's structure using the interface as a declarative configuration
 	 * @param defaultHandlerSpawner a static method that retrieves the Handler used when none is explicitly set.<br>
 	 *		<code>null</code> always sets the default Handler to <code>this</code>.<br>
 	 *		If specified, the Spawner must be a reachable (<code>public</code> method and class)
 	 *		<code>static</code> method.<br>
 	 *		It's signature must be <code>HANDLER method(HANDLER)</code>.
-	 *		Return the parameter for "no build" default behavior.<br>
+	 *		Return the parameter for "no handler" default behavior.<br>
 	 *		It must not return null and must not declare or throw Throwables.<br>
 	 *		The Handlee passes itself on initialisation.<br>
 	 *		For a Handler <code>X</code>, this example sets no build - like passing <code>null</code> instead:
@@ -184,12 +184,12 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 			if (match(
 					method, "()" + handlerDesc,
 					"get" + simpleName, simpleName, downcaseFirst(simpleName))) {
-				// a method to retrieve build X: "X getX()", "X X()" or "X x()"
+				// a method to retrieve handler X: "X getX()", "X X()" or "X x()"
 				getHandlers.add(method.name);
 			} else if (match(
 					method, "(" + handlerDesc + ")V",
 					"set" + simpleName, simpleName, downcaseFirst(simpleName))) {
-				// a method to set build X: "void setX(X)", "void X(X)" or "void x(X)"
+				// a method to set handler X: "void setX(X)", "void X(X)" or "void x(X)"
 				setHandlers.add(method.name);
 			} else if (method.desc.substring(1).startsWith(handlerType.getDescriptor())) {
 				handlerMethods.add(method.name + "(" + method.desc.substring(method.desc.indexOf(';') + 1));
@@ -246,7 +246,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	}
 
 	/**
-	 * create the instructions needed to store a build in the build field or in a temporary variable.
+	 * create the instructions needed to store a handler in the handler field or in a temporary variable.
 	 * If handlee and handlerField are non-null, the result is stored in the field on handlee.
 	 * Otherwise, it's stored in a temporary variable at position varSlot.
 	 */
@@ -261,7 +261,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 		}
 		InsnList instructions = new InsnList();
 		if (fromSpawner && usesSpawner()) {
-			// result is spawned build
+			// result is spawned handler
 			instructions.add(new VarInsnNode(ALOAD, 0));
 			instructions.add(new MethodInsnNode(INVOKESTATIC, spawnerClass, spawnerMethod, spawnerDesc, false));
 		} else {
@@ -341,7 +341,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	}
 
 	/**
-	 * creates the build method:
+	 * creates the handler method:
 	 * <pre><code>
 	 *	public MODIFIERS RETURN_TYPE METHOD_NAME(...) EXCEPTIONS {
 	 *		HANDLER_TYPE tmp = this.HANDLER_FIELD;
@@ -351,7 +351,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	 *		return tmp.METHOD_NAME(this, ...);
 	 *	}
 	 * </code></pre>
-	 * if a spawner for a default build is given, it is used instead of <code>this</code>
+	 * if a spawner for a default handler is given, it is used instead of <code>this</code>
 	 */
 	private MethodNode createHandlerMethod(
 			MethodNode handledMethod,
@@ -368,17 +368,17 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 		mn.visitCode();
 		Label start = new Label();
 		mn.visitLabel(start);
-		// build guard
+		// handler guard
 		mn.visitVarInsn(ALOAD, 0);
 		mn.visitFieldInsn(GETFIELD, handleeInternalName, field, handlerType.getDescriptor());
 		Label afterJump = null;
-		// store build in temporary var
+		// store handler in temporary var
 		int varSlot = 1;
 		for (Type t : argTypes) {
 			varSlot += t.getSize();
 		}
 		mn.visitVarInsn(ASTORE, varSlot);
-		// build conditional
+		// handler conditional
 		mn.visitVarInsn(ALOAD, varSlot);
 		mn.visitJumpInsn(IFNONNULL, afterJump = new Label());
 		storeHandlerInVarSlot(mn, varSlot, true);
@@ -399,7 +399,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 			mn.visitVarInsn(type.getOpcode(ILOAD), slot);
 			slot += type.getSize();
 		}
-		// call build method on build field with (this, other arguments)
+		// call handler method on handler field with (this, other arguments)
 		String targetMethodArgDescriptor = "(" + handlerType.getDescriptor() + handledMethod.desc.substring(1);
 		mn.visitMethodInsn(
 				INVOKEINTERFACE,
@@ -456,7 +456,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	/**
 	 * changes handled method; adds HANDLER argument, removes private/protected:
 	 * <pre><code>
-	 *	public MODIFIERS RETURN_TYPE METHOD_NAME(HANDLER build, [other arguments]) EXCEPTIONS {
+	 *	public MODIFIERS RETURN_TYPE METHOD_NAME(HANDLER handler, [other arguments]) EXCEPTIONS {
 	 *		// ...
 	 *	}
 	 * </code></pre>
@@ -507,27 +507,26 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	 */
 	@SuppressWarnings("unchecked")
 	private void swapAttributesAndAnnotations(MethodNode m1, MethodNode m2) {
-		// with comment based spacing to improve pattern recognition:
 		Object annotationDefault = m1.annotationDefault;
 		m1.annotationDefault = m2.annotationDefault;
 		m2.annotationDefault = annotationDefault;
-		//
+
 		List<Attribute> attributes = m1.attrs;
 		m1.attrs = m2.attrs;
 		m2.attrs = attributes;
-		//
+
 		List<AnnotationNode> annotations = m1.invisibleAnnotations;
 		m1.invisibleAnnotations = m2.invisibleAnnotations;
 		m2.invisibleAnnotations = annotations;
-		//
+
 		annotations = m1.visibleAnnotations;
 		m1.visibleAnnotations = m2.visibleAnnotations;
 		m2.visibleAnnotations = annotations;
-		//
+
 		List<AnnotationNode>[] parameterAnnotations = m1.invisibleParameterAnnotations;
 		m1.invisibleParameterAnnotations = m2.invisibleParameterAnnotations;
 		m2.invisibleParameterAnnotations = parameterAnnotations;
-		//
+
 		parameterAnnotations = m1.visibleParameterAnnotations;
 		m1.visibleParameterAnnotations = m2.visibleParameterAnnotations;
 		m2.visibleParameterAnnotations = parameterAnnotations;
@@ -536,7 +535,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 	/**
 	 * wraps a handled native method:
 	 * <pre><code>
-	 *	public final MODIFIERS RETURN_TYPE METHOD_NAME(HANDLER build, [other arguments]) EXCEPTIONS {
+	 *	public final MODIFIERS RETURN_TYPE METHOD_NAME(HANDLER handler, [other arguments]) EXCEPTIONS {
 	 *		return <nativePrefix>METHOD_NAME([other arguments]);
 	 *	}
 	 * </code></pre>
@@ -676,6 +675,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 		mn.visitVarInsn(ALOAD, 0);
 		mn.visitFieldInsn(GETFIELD, ownerInternalName, field, fieldType.getDescriptor());
 		if (this.handlerType.equals(fieldType)) {
+			// return <this> instead of <null> for the handler field
 			Label jumpAfter = new Label();
 			mn.visitJumpInsn(IFNONNULL, jumpAfter);
 			mn.visitVarInsn(ALOAD, 0);
@@ -719,7 +719,7 @@ public class HandlerInstrumentation implements ASMTreeInstrumentation {
 		Label start = new Label();
 		mn.visitLabel(start);
 		if (this.handlerType.equals(fieldType)) {
-			// on setters for set build-field to <this> if argument is <null>
+			// change argument to <this> if it is <null> for the handler field
 			mn.visitVarInsn(ALOAD, 1);
 			Label jumpAfter = new Label();
 			mn.visitJumpInsn(IFNONNULL, jumpAfter);

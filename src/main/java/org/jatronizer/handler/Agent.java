@@ -140,7 +140,7 @@ public class Agent implements ClassFileTransformer {
 	public static void usage(boolean argError) {
 		if (argError) {
 			System.err.println(
-					"missing build class specification (agent args):"
+					"missing handler class specification (agent args):"
 			);
 		} else {
 			System.err.println(
@@ -154,9 +154,9 @@ public class Agent implements ClassFileTransformer {
 			);
 		}
 		System.err.println(
-				"  one or more build specifications (separated by ';')\n" +
-				"  a build specification consists of the build name and the handlees (',' separated)\n" +
-				"  handlees specified with the Instruments annotation in the build are automatically added\n" +
+				"  one or more handler specifications (separated by ';')\n" +
+				"  a handler specification consists of the handler name and the handlees (',' separated)\n" +
+				"  handlees specified with the Instruments annotation in the handler are automatically added\n" +
 				"  examples:\n" +
 				"    my.Handler\n" +
 				"    my.Handler=my.Handlee\n" +
